@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CashCash — Catatan Keuangan & Tabungan</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --danger: #ef4444;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    header h1 { color: var(--primary-dark); font-size: 1.8rem; }
+    .tabs { display: flex; gap: 10px; background: var(--card); padding: 6px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .tab-btn { padding: 10px 20px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); transition: 0.2s; }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card { background: var(--card); padding: 20px; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 20px; }
+    h2 { font-size: 1.15rem; margin-bottom: 14px; color: var(--text); }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; }
+    input:focus, select:focus { border-color: var(--primary); }
+    .btn { background: var(--primary); color: white; border: none; padding: 11px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 0.95rem; transition: 0.2s; }
+    .btn:hover { background: var(--primary-dark); }
+    .btn-sm { padding: 6px 12px; font-size: 0.85rem; width: auto; }
+    .btn-danger { background: var(--danger); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .summary-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+    .s-box { padding: 14px; border-radius: 10px; background: #f9fafb; border: 1px solid var(--border); }
+    .s-box span { font-size: 0.8rem; color: var(--muted); display: block; }
+    .s-box strong { font-size: 1.15rem; margin-top: 4px; display: block; }
+    .in-text { color: var(--primary-dark); }
+    .out-text { color: var(--danger); }
+    .cat-list { list-style: none; }
+    .cat-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .cat-item:last-child { border-bottom: none; }
+    .badge { background: #ecfdf5; color: var(--primary-dark); padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-left: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    .hide { display: none; }
+    /* Tabungan Cards */
+    .saving-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+    .saving-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--card); display: flex; flex-direction: column; }
+    .saving-img { width: 100%; height: 160px; object-fit: cover; background: #e5e7eb; }
+    .saving-body { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .progress-wrap { background: #e5e7eb; height: 10px; border-radius: 99px; overflow: hidden; margin: 10px 0; }
+    .progress-bar { background: var(--primary); height: 100%; transition: width 0.3s; }
+    .info-pill { background: #eff6ff; color: #1d4ed8; padding: 8px 10px; border-radius: 8px; font-size: 0.85rem; margin: 8px 0; line-height: 1.4; }
+    .info-pill.done { background: #ecfdf5; color: var(--primary-dark); font-weight: 600; }
+    .deposit-row { display: flex; gap: 6px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>💸 CashCash</h1>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('transaksi')">📊 Keuangan & Rekap</button>
+        <button class="tab-btn" onclick="switchTab('tabungan')">🎯 Tabungan Barang</button>
+      </div>
+    </header>
+
+    <!-- TAB 1: TRANSAKSI & PENGELOMPOKAN -->
+    <section id="transaksi" class="screen active">
+      <div class="grid-2">
+        <!-- Form Input -->
+        <div class="card">
+          <h2>Catat Transaksi</h2>
+          <div class="form-group">
+            <label>Jenis Transaksi</label>
+            <select id="tJenis" onchange="toggleKategori()">
+              <option value="keluar">Pengeluaran (-)</option>
+              <option value="masuk">Pemasukan (+)</option>
+            </select>
+          </div>
+          <div class="form-group" id="grupKategori">
+            <label>Kategori Pengeluaran</label>
+            <select id="tKategori" onchange="cekCustomKategori()">
+              <option value="Makanan">Makanan</option>
+              <option value="Kebutuhan">Kebutuhan</option>
+              <option value="Me Time">Me Time</option>
+              <option value="Transportasi">Transportasi</option>
+              <option value="__custom__">+ Tambah Kategori Custom...</option>
+            </select>
+          </div>
+          <div class="form-group hide" id="grupCustomKat">
+            <label>Nama Kategori Baru</label>
+            <input type="text" id="tCustomKat" placeholder="Misal: Skincare, Kopi, Pulsa" />
+          </div>
+          <div class="form-group">
+            <label>Nominal (Rp)</label>
+            <input type="number" id="tNominal" placeholder="Contoh: 20000" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Tanggal</label>
+            <input type="date" id="tTanggal" />
+          </div>
+          <div class="form-group">
+            <label>Catatan (Opsional)</label>
+            <input type="text" id="tCatatan" placeholder="Contoh: Ojek ke kampus / Makan siang" />
+          </div>
+          <button class="btn" onclick="tambahTransaksi()">Simpan Transaksi</button>
+        </div>
+
+        <!-- Pengelompokan Mingguan / Bulanan -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h2 style="margin:0;">Pengelompokan Pengeluaran</h2>
+            <select id="filterPeriode" style="width:auto;" onchange="renderKeuangan()">
+              <option value="minggu">Minggu Ini (7 Hari Terakhir)</option>
+              <option value="bulan">Bulan Ini</option>
+            </select>
+          </div>
+
+          <div class="summary-boxes">
+            <div class="s-box">
+              <span>Pemasukan</span>
+              <strong class="in-text" id="totMasuk">Rp0</strong>
+            </div>
+            <div class="s-box">
+              <span>Pengeluaran</span>
+              <strong class="out-text" id="totKeluar">Rp0</strong>
+            </div>
+            <div class="s-box">
+              <span>Selisih</span>
+              <strong id="totSelisih">Rp0</strong>
+            </div>
+          </div>
+
+          <label>Rincian per Kategori yang Sama:</label>
+          <ul class="cat-list" id="listKelompok"></ul>
+        </div>
+      </div>
+
+      <!-- Riwayat Transaksi -->
+      <div class="card">
+        <h2>Riwayat Transaksi Periode Terpilih</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Kategori</th>
+                <th>Catatan</th>
+                <th>Nominal</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tabelTransaksi"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: MENABUNG BARANG -->
+    <section id="tabungan" class="screen">
+      <div class="card">
+        <h2>Tambah Target Tabungan Barang</h2>
+        <div class="grid-2">
+          <div>
+            <div class="form-group">
+              <label>Nama Barang</label>
+              <input type="text" id="sNama" placeholder="Contoh: SSD Portable / Sepatu" />
+            </div>
+            <div class="form-group">
+              <label>Harga Barang (Rp)</label>
+              <input type="number" id="sHarga" placeholder="Contoh: 100000" min="1" />
+            </div>
+            <div class="form-group">
+              <label>Upload Gambar Barang</label>
+              <input type="file" id="sGambar" accept="image/*" />
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>Metode Menabung</label>
+              <select id="sMode" onchange="toggleTargetHarian()">
+                <option value="target">Target Pasti per Hari</option>
+                <option value="bebas">Tidak Pasti (Bebas / Tanpa Target)</option>
+              </select>
+            </div>
+            <div class="form-group" id="grupTargetOpsi">
+              <label>Pilih Nominal Target / Hari</label>
+              <select id="sTargetPilihan" onchange="cekCustomTarget()">
+                <option value="10000">Rp10.000 / hari</option>
+                <option value="20000">Rp20.000 / hari</option>
+                <option value="50000">Rp50.000 / hari</option>
+                <option value="100000">Rp100.000 / hari</option>
+                <option value="custom">Nominal Custom...</option>
+              </select>
+            </div>
+            <div class="form-group hide" id="grupTargetCustom">
+              <label>Masukkan Target Harian Custom (Rp)</label>
+              <input type="number" id="sTargetCustom" placeholder="Contoh: 15000" min="1" />
+            </div>
+            <button class="btn" style="margin-top: 22px;" onclick="tambahBarangTabungan()">Buat Target Tabungan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="saving-grid" id="listTabungan"></div>
+    </section>
+  </div>
+
+  <script>
+    const DB_KEY = 'cashcash_data_v1';
+    let data = JSON.parse(localStorage.getItem(DB_KEY)) || {
+      transaksi: [],
+      customKategori: [],
+      tabungan: []
+    };
+
+    const save = () => localStorage.setItem(DB_KEY, JSON.stringify(data));
+    const rp = n => 'Rp' + Number(n || 0).toLocaleString('id-ID');
+    const todayStr = () => new Date().toISOString().slice(0, 10);
+
+    // Init
+    document.getElementById('tTanggal').value = todayStr();
+    renderDropdownKategori();
+    renderKeuangan();
+    renderTabungan();
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    // --- LOGIKA TRANSAKSI & PENGELOMPOKAN ---
+    function renderDropdownKategori() {
+      const defaults = ['Makanan', 'Kebutuhan', 'Me Time', 'Transportasi'];
+      const all = [...new Set([...defaults, ...data.customKategori])];
+      const sel = document.getElementById('tKategori');
+      sel.innerHTML = all.map(k => `<option value="${k}">${k}</option>`).join('') +
+        `<option value="__custom__">+ Tambah Kategori Custom...</option>`;
+    }
+
+    function toggleKategori() {
+      const isKeluar = document.getElementById('tJenis').value === 'keluar';
+      document.getElementById('grupKategori').classList.toggle('hide', !isKeluar);
+      if (!isKeluar) document.getElementById('grupCustomKat').classList.add('hide');
+    }
+
+    function cekCustomKategori() {
+      const val = document.getElementById('tKategori').value;
+      document.getElementById('grupCustomKat').classList.toggle('hide', val !== '__custom__');
+    }
+
+    function tambahTransaksi() {
+      const jenis = document.getElementById('tJenis').value;
+      const nominal = parseFloat(document.getElementById('tNominal').value);
+      const tanggal = document.getElementById('tTanggal').value;
+      const catatan = document.getElementById('tCatatan').value.trim();
+
+      if (!nominal || nominal <= 0 || !tanggal) return alert('Isi nominal dan tanggal dengan benar.');
+
+      let kategori = 'Pemasukan';
+      if (jenis === 'keluar') {
+        kategori = document.getElementById('tKategori').value;
+        if (kategori === '__custom__') {
+          const baru = document.getElementById('tCustomKat').value.trim();
+          if (!baru) return alert('Masukkan nama kategori custom.');
+          kategori = baru;
+          if (!data.customKategori.includes(baru)) data.customKategori.push(baru);
+          renderDropdownKategori();
+          document.getElementById('tKategori').value = baru;
+          document.getElementById('grupCustomKat').classList.add('hide');
+          document.getElementById('tCustomKat').value = '';
+        }
+      }
+
+      data.transaksi.push({ id: Date.now(), jenis, kategori, nominal, tanggal, catatan });
+      save();
+      document.getElementById('tNominal').value = '';
+      document.getElementById('tCatatan').value = '';
+      renderKeuangan();
+    }
+
+    function hapusTransaksi(id) {
+      data.transaksi = data.transaksi.filter(t => t.id !== id);
+      save();
+      renderKeuangan();
+    }
+
+    function filterDataPeriode() {
+      const mode = document.getElementById('filterPeriode').value;
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
+
+      return data.transaksi.filter(t => {
+        const tgl = new Date(t.tanggal + 'T00:00:00');
+        if (mode === 'minggu') {
+          const lalu7Hari = new Date();
+          lalu7Hari.setDate(now.getDate() - 6);
+          lalu7Hari.setHours(0, 0, 0, 0);
+          return tgl >= lalu7Hari && tgl <= now;
+        } else {
+          return tgl.getMonth() === now.getMonth() && tgl.getFullYear() === now.getFullYear();
+        }
+      });
+    }
+
+    function renderKeuangan() {
+      const list = filterDataPeriode().sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+      let masuk = 0, keluar = 0;
+      const kelompok = {};
+
+      list.forEach(t => {
+        if (t.jenis === 'masuk') {
+          masuk += t.nominal;
+        } else {
+          keluar += t.nominal;
+          if (!kelompok[t.kategori]) kelompok[t.kategori] = { total: 0, count: 0 };
+          kelompok[t.kategori].total += t.nominal;
+          kelompok[t.kategori].count += 1;
+        }
+      });
+
+      document.getElementById('totMasuk').textContent = rp(masuk);
+      document.getElementById('totKeluar').textContent = rp(keluar);
+      const selisih = masuk - keluar;
+      const elSel = document.getElementById('totSelisih');
+      elSel.textContent = (selisih >= 0 ? '+' : '') + rp(selisih);
+      elSel.style.color = selisih >= 0 ? 'var(--primary-dark)' : 'var(--danger)';
+
+      // Render pengelompokan kategori
+      const ul = document.getElementById('listKelompok');
+      const entries = Object.entries(kelompok).sort((a, b) => b[1].total - a[1].total);
+      ul.innerHTML = entries.length
+        ? entries.map(([kat, info]) => `
+            <li class="cat-item">
+              <div><strong>${kat}</strong> <span class="badge">${info.count}x transaksi</span></div>
+              <strong class="out-text">${rp(info.total)}</strong>
+            </li>`).join('')
+        : `<li class="cat-item" style="color:var(--muted)">Belum ada pengeluaran pada periode ini.</li>`;
+
+      // Render tabel riwayat
+      const tbody = document.getElementById('tabelTransaksi');
+      tbody.innerHTML = list.length
+        ? list.map(t => `
+            <tr>
+              <td>${t.tanggal.split('-').reverse().join('-')}</td>
+              <td><strong>${t.kategori}</strong></td>
+              <td>${t.catatan || '-'}</td>
+              <td class="${t.jenis === 'masuk' ? 'in-text' : 'out-text'}">
+                ${t.jenis === 'masuk' ? '+' : '-'}${rp(t.nominal)}
+              </td>
+              <td><button class="btn btn-sm btn-danger" onclick="hapusTransaksi(${t.id})">Hapus</button></td>
+            </tr>`).join('')
+        : `<tr><td colspan="5" style="text-align:center;color:var(--muted)">Belum ada transaksi.</td></tr>`;
+    }
+
+    // --- LOGIKA TABUNGAN BARANG ---
+    function toggleTargetHarian() {
+      const isTarget = document.getElementById('sMode').value === 'target';
+      document.getElementById('grupTargetOpsi').classList.toggle('hide', !isTarget);
+      if (!isTarget) document.getElementById('grupTargetCustom').classList.add('hide');
+      else cekCustomTarget();
+    }
+
+    function cekCustomTarget() {
+      const val = document.getElementById('sTargetPilihan').value;
+      document.getElementById('grupTargetCustom').classList.toggle('hide', val !== 'custom');
+    }
+
+    // Kompres gambar agar muat disimpan di localStorage
+    function compressImage(file, callback) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 400;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          callback(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function tambahBarangTabungan() {
+      const nama = document.getElementById('sNama').value.trim();
+      const harga = parseFloat(document.getElementById('sHarga').value);
+      const mode = document.getElementById('sMode').value;
+      const fileInput = document.getElementById('sGambar');
+
+      if (!nama || !harga || harga <= 0) return alert('Nama barang dan harga wajib diisi.');
+
+      let targetHarian = 0;
+      if (mode === 'target') {
+        const pil = document.getElementById('sTargetPilihan').value;
+        targetHarian = pil === 'custom'
+          ? parseFloat(document.getElementById('sTargetCustom').value)
+          : parseFloat(pil);
+        if (!targetHarian || targetHarian <= 0) return alert('Masukkan nominal target harian.');
+      }
+
+      const simpanItem = (imgData) => {
+        data.tabungan.push({
+          id: Date.now(),
+          nama,
+          harga,
+          terkumpul: 0,
+          mode,
+          targetHarian,
+          gambar: imgData || ''
+        });
+        save();
+        document.getElementById('sNama').value = '';
+        document.getElementById('sHarga').value = '';
+        document.getElementById('sGambar').value = '';
+        document.getElementById('sTargetCustom').value = '';
+        renderTabungan();
+      };
+
+      if (fileInput.files && fileInput.files[0]) {
+        compressImage(fileInput.files[0], simpanItem);
+      } else {
+        simpanItem('');
+      }
+    }
+
+    function setorTabungan(id, nominalCustom = null) {
+      const item = data.tabungan.find(x => x.id === id);
+      if (!item) return;
+      const inputEl = document.getElementById('setor_' + id);
+      const jumlah = nominalCustom !== null ? nominalCustom : parseFloat(inputEl.value);
+
+      if (!jumlah || jumlah <= 0) return alert('Masukkan nominal tabungan yang valid.');
+      item.terkumpul += jumlah;
+      save();
+      renderTabungan();
+    }
+
+    function hapusTabungan(id) {
+      if (!confirm('Hapus target tabungan ini?')) return;
+      data.tabungan = data.tabungan.filter(x => x.id !== id);
+      save();
+      renderTabungan();
+    }
+
+    function renderTabungan() {
+      const wrap = document.getElementById('listTabungan');
+      if (!data.tabungan.length) {
+        wrap.innerHTML = `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--muted)">Belum ada barang yang ditabung. Tambahkan target barang di atas!</div>`;
+        return;
+      }
+
+      const placeholderImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="160"><rect width="100%" height="100%" fill="%23e5e7eb"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%236b7280" font-family="sans-serif" font-size="16">Tidak Ada Gambar</text></svg>';
+
+      wrap.innerHTML = data.tabungan.map(item => {
+        const sisa = Math.max(0, item.harga - item.terkumpul);
+        const persen = Math.min(100, (item.terkumpul / item.harga) * 100).toFixed(0);
+        const lunas = sisa === 0;
+
+        let statusHtml = '';
+        if (lunas) {
+          statusHtml = `<div class="info-pill done">🎉 Target tercapai! Barang sudah bisa dibeli.</div>`;
+        } else if (item.mode === 'target') {
+          const hariLagi = Math.ceil(sisa / item.targetHarian);
+          statusHtml = `
+            <div class="info-pill">
+              ⏳ Estimasi: <strong>${hariLagi} hari lagi</strong> (target ${rp(item.targetHarian)}/hari)<br>
+              💰 Kurang <strong>${rp(sisa)}</strong> lagi untuk membeli ini
+            </div>`;
+        } else {
+          statusHtml = `
+            <div class="info-pill">
+              💰 Kurang <strong>${rp(sisa)}</strong> lagi untuk membeli ini<br>
+              <small>(Mode tabungan bebas tanpa target harian)</small>
+            </div>`;
+        }
+
+        return `
+          <div class="saving-card">
+            <img class="saving-img" src="${item.gambar || placeholderImg}" alt="${item.nama}" />
+            <div class="saving-body">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;">
+                  <h3 style="font-size:1.05rem;">${item.nama}</h3>
+                  <button class="btn btn-sm btn-outline" style="padding:2px 8px;color:var(--danger)" onclick="hapusTabungan(${item.id})">✕</button>
+                </div>
+                <div style="font-size:0.85rem;color:var(--muted);margin-top:4px;">
+                  Terkumpul: <strong>${rp(item.terkumpul)}</strong> / ${rp(item.harga)} (${persen}%)
+                </div>
+                <div class="progress-wrap">
+                  <div class="progress-bar" style="width:${persen}%"></div>
+                </div>
+                ${statusHtml}
+              </div>
+
+              ${!lunas ? `
+                <div>
+                  ${item.mode === 'target' ? `
+                    <button class="btn btn-sm" style="width:100%;margin-bottom:6px;" onclick="setorTabungan(${item.id}, ${item.targetHarian})">
+                      + Tabung Target Hari Ini (${rp(item.targetHarian)})
+                    </button>` : ''}
+                  <div class="deposit-row">
+                    <input type="number" id="setor_${item.id}" placeholder="Nominal lain (Rp)" min="1" />
+                    <button class="btn btn-sm btn-outline" onclick="setorTabungan(${item.id})">Tabung</button>
+                  </div>
+                </div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
